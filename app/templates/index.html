@@ -11,17 +11,19 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
+            color: #333;
         }
         .hidden {
             display: none;
         }
         #chat-container {
             border: 1px solid #ccc;
-            border-radius: 5px;
+            border-radius: 8px;
             padding: 10px;
             height: 400px;
             display: flex;
             flex-direction: column;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         #messages {
             flex-grow: 1;
@@ -33,7 +35,8 @@
             margin-bottom: 8px;
             padding: 8px;
             border-radius: 5px;
-            background-color: #f0f0f0;
+            background-color: #f1f1f1;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .message .header {
             display: flex;
@@ -48,11 +51,21 @@
             font-size: 0.8em;
         }
         .system-message {
-            color: #888;
+            color: #666;
             font-style: italic;
+            background-color: #f8f8f8;
         }
         .user-list {
             margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .user-list h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #444;
         }
         #message-form {
             display: flex;
@@ -61,6 +74,8 @@
             flex-grow: 1;
             padding: 8px;
             margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
         button {
             padding: 8px 16px;
@@ -69,14 +84,31 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            transition: background-color 0.2s;
         }
         button:hover {
             background-color: #45a049;
+        }
+        #connection-status {
+            padding: 5px 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .connected {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .disconnected {
+            background-color: #f2dede;
+            color: #a94442;
         }
     </style>
 </head>
 <body>
     <h1>Simple Chat</h1>
+    
+    <div id="connection-status"></div>
     
     <!-- Login Form -->
     <div id="login-container">
@@ -114,11 +146,18 @@
         const messageForm = document.getElementById('message-form');
         const messageInput = document.getElementById('message-input');
         const usersList = document.getElementById('users');
+        const connectionStatus = document.getElementById('connection-status');
         
         // Socket.io connection
         const socket = io();
         const users = new Set();
         let currentUser = '';
+        
+        // Update connection status display
+        function updateConnectionStatus(connected) {
+            connectionStatus.textContent = connected ? 'Connected to server' : 'Disconnected from server';
+            connectionStatus.className = connected ? 'connected' : 'disconnected';
+        }
         
         // Event listeners
         loginForm.addEventListener('submit', function(e) {
@@ -145,10 +184,17 @@
         // Socket events
         socket.on('connect', function() {
             console.log('Connected to server');
+            updateConnectionStatus(true);
+            
+            // Request current user list if rejoining
+            if (currentUser) {
+                socket.emit('get_users');
+            }
         });
         
         socket.on('disconnect', function() {
             console.log('Disconnected from server');
+            updateConnectionStatus(false);
             addSystemMessage('Disconnected from server. Please refresh the page.');
         });
         
@@ -161,6 +207,12 @@
         socket.on('user_left', function(data) {
             const { username } = data;
             users.delete(username);
+            updateUsersList();
+        });
+        
+        socket.on('user_list', function(data) {
+            users.clear();
+            data.users.forEach(username => users.add(username));
             updateUsersList();
         });
         
@@ -221,6 +273,9 @@
                 usersList.appendChild(userItem);
             });
         }
+        
+        // Initialize
+        updateConnectionStatus(socket.connected);
     </script>
 </body>
 </html>
